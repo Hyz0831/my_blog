@@ -21,6 +21,22 @@ def init_db():
     with get_db_connection() as conn:
         cursor = conn.cursor()
         
+        # users 用户表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT DEFAULT 'user',
+                status TEXT DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+
         # subscriptions 订阅表
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS subscriptions (
@@ -44,6 +60,37 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        # articles 文章表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS articles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                author_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                content_format TEXT DEFAULT 'markdown',
+                summary TEXT,
+                cover_img TEXT,
+                tags TEXT DEFAULT '[]',
+                status TEXT DEFAULT 'draft',
+                visibility TEXT DEFAULT 'public',
+                is_top INTEGER DEFAULT 0,
+                category_id INTEGER,
+                slug TEXT,
+                views INTEGER DEFAULT 0,
+                likes INTEGER DEFAULT 0,
+                comments_count INTEGER DEFAULT 0,
+                publish_time TIMESTAMP,
+                update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (author_id) REFERENCES users(id),
+                FOREIGN KEY (category_id) REFERENCES categories(id)
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_articles_author ON articles(author_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_articles_visibility ON articles(visibility)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_articles_publish_time ON articles(publish_time DESC)")
         
         # resources 表
         cursor.execute("""
@@ -500,23 +547,92 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With"],
 )
 
-API_KEY = os.getenv("API_KEY", "your-secret-api-key-change-in-production")
+# 使用环境变量设置 API_KEY，生产环境必须修改默认值
+API_KEY = os.getenv("API_KEY")
+if not API_KEY:
+    import secrets
+    API_KEY = secrets.token_urlsafe(32)
+    print(f"⚠️  警告：未设置 API_KEY 环境变量，已生成临时密钥：{API_KEY[:8]}...")
+    print("   请在生产环境中设置 API_KEY 环境变量以确保安全！")
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Header, Request, status
+from passlib.context import CryptContext
+from datetime import datetime, timedelta
+from typing import Optional
+import jwt
 
-async def verify_api_key(x_api_key: str = Header(None, alias="X-API-Key")):
-    if x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API Key")
-    return True
+# JWT 配置
+JWT_SECRET = os.getenv("JWT_SECRET", secrets.token_urlsafe(32))
+JWT_ALGORITHM = "HS256"
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
-async def get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "127.0.0.1"
+# 密码加密上下文
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """验证密码"""
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password: str) -> str:
+    """生成密码哈希"""
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """创建 JWT access token"""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> Optional[Dict]:
+    """从 JWT token 获取当前用户信息"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+        return {"username": username, "role": payload.get("role", "user")}
+    except jwt.PyJWTError:
+        return None
+
+from fastapi.security import OAuth2PasswordBearer
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+async def get_current_user(request: Request) -> Optional[Dict]:
+    """从请求头获取当前用户信息（使用 JWT）"""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header.split(" ")[1]
+    return await get_current_user_from_token(token)
 
 
 # --- Pydantic Models ---
+
+class UserRegisterRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+
+class UserLoginRequest(BaseModel):
+    username: str
+    password: str
+
+class CreatePostRequest(BaseModel):
+    title: str
+    content: str
+    content_format: Optional[str] = "markdown"
+    summary: Optional[str] = None
+    cover_img: Optional[str] = None
+    tags: Optional[str] = None
+    category_id: Optional[int] = None
+    slug: Optional[str] = None
+    visibility: Optional[str] = "draft"
 
 class UpdatePostRequest(BaseModel):
     title: Optional[str] = None
@@ -529,7 +645,6 @@ class UpdatePostRequest(BaseModel):
     category_id: Optional[int] = None
     slug: Optional[str] = None
 
-
 class APIResponse(BaseModel):
     code: int
     msg: str
@@ -537,6 +652,14 @@ class APIResponse(BaseModel):
     total: Optional[int] = None
     page: Optional[int] = None
     page_size: Optional[int] = None
+
+
+async def get_client_ip(request: Request) -> str:
+    """获取客户端真实 IP"""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "127.0.0.1"
 
 
 # --- Routes ---
