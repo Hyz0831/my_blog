@@ -1,0 +1,12 @@
+// 组件导出索引文件
+export { default as Navbar } from './Navbar.vue'
+export { default as Bloglist } from './Bloglist.vue'
+export { default as MainContent } from './Main-Content.vue'
+export { default as MainContainer } from './main_container.vue'
+export { default as MainContentLeft } from './main_content_left.vue'
+export { default as Calendar } from './Calendar.vue'
+export { default as WaveSeparator } from './WaveSeparator.vue'
+export { default as Logo } from './logo.vue'
+export { default as PoliceFilingBadge } from './PoliceFilingBadge.vue'
+export { default as ResumeList } from './Resume_List.vue'
+export { default as ResumeDetail } from './Resume_Detail.vue'

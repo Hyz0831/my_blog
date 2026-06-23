@@ -1,0 +1,23 @@
+# === Python / Backend ===
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+*.sqlite
+*.db
+backend/data/          # ⚠️ 绝对不要上传生产环境的数据库！
+
+# === Node / Frontend ===
+node_modules/
+frontend/dist/         # 构建产物不需要上传，服务器可以重新 build
+*.log
+
+# === IDE & OS ===
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# === Docker ===
+.dockerenv

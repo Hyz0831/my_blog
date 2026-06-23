@@ -1,0 +1,17 @@
+# 🚀 FastAPI 后端依赖
+fastapi==0.104.1
+uvicorn==0.24.0.post1
+pydantic==2.5.2
+
+# 📦 数据库相关
+# SQLite3 是 Python 标准库内置，无需额外安装
+
+# 🔧 开发工具
+python-dotenv==1.0.0
+pytest==7.4.3
+pytest-asyncio==0.21.1
+
+# 📝 Markdown 处理（如需要解析文章内容）
+python-markdown==3.4.4
+
+# 🚦 CORS 和中间件（FastAPI 内置）
