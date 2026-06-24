@@ -116,7 +116,7 @@ export function getTagColor(tag: string): string {
   for (let i = 0; i < tag.length; i++) {
     hash = tag.charCodeAt(i) + ((hash << 5) - hash)
   }
-  return colors[Math.abs(hash) % colors.length]
+  return colors[Math.abs(hash) % colors.length] || '#3498db'
 }
 
 export function filterMarkdown(text?: string): string {

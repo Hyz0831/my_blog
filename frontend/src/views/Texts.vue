@@ -108,8 +108,6 @@ const currentFilterLabel = computed(() => {
   return ''
 })
 
-const maxTagCount = computed(() => Math.max(...tags.value.map(t => t.count), 1))
-
 const getCategoryPercentage = (cat: typeof categories.value[0]): string => {
   const total = categories.value[0]?.count || 1
   if (cat.id === 'all') return '100'
@@ -234,7 +232,6 @@ const loadData = async () => {
         if (isNaN(date.getTime())) return
         const year = date.getFullYear().toString()
         const month = `${date.getMonth() + 1}`.padStart(2, '0')
-        const monthLabel = `${date.getMonth() + 1}月`
         if (!archiveMap.has(year)) archiveMap.set(year, new Map())
         const monthMap = archiveMap.get(year)!
         monthMap.set(month, (monthMap.get(month) || 0) + 1)
@@ -251,7 +248,8 @@ const loadData = async () => {
     }
 
     if (timeArchives.value.length > 0) {
-      expandedYears.value.add(timeArchives.value[0].year)
+      const first = timeArchives.value[0]
+      if (first) expandedYears.value.add(first.year)
     }
 
     popularPosts.value = topPostsResult.data || postsResult.data || []

@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { ElCard, ElTag, ElPagination, ElEmpty } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { get_texts, get_posts_by_category, get_posts_by_tags } from '../api/api.ts'
+import { get_texts, get_posts_by_tags } from '../api/api.ts'
 import type { PostItem, ApiResponse } from '../api/api.ts'
 import { formatDate, normalizeTags, truncateText, filterMarkdown } from '../utils/index'
 

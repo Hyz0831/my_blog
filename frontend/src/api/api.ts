@@ -112,83 +112,6 @@ export interface ProfileInfo {
     }[]
 }
 
-export interface CategoryItem {
-    id: number
-    name: string
-    slug: string
-    count: number
-}
-
-export interface TagItem {
-    id: number
-    name: string
-    slug: string
-    count: number
-}
-
-export interface CommentItem {
-    id: number
-    post_id: number
-    user_id: number
-    nickname: string
-    avatar: string
-    content: string
-    parent_id: number | null
-    likes: number
-    created_at: string
-    replies?: CommentItem[]
-}
-
-export interface CreateCommentParams {
-    post_id: number
-    content: string
-    nickname: string
-    email?: string
-    parent_id?: number
-}
-
-export interface ResourceItem {
-    id: number
-    name: string
-    role: string
-    experience: string
-    company: string
-    location: string
-    skills: string[]
-    description: string
-    cover_img: string
-    file_path: string
-    filename: string
-    has_password: boolean
-}
-
-export interface VerifyResourceParams {
-    resource_id: number
-    password: string
-}
-
-export interface ProfileInfo {
-    nickname: string
-    avatar: string
-    title: string
-    subtitle: string
-    bio: string
-    tech_stack: {
-        category: string
-        items: string[]
-    }[]
-    contacts: {
-        platform: string
-        url: string
-        icon: string
-    }[]
-    features: {
-        title: string
-        description: string
-        icon: string
-    }[]
-}
-
 // --- Axios 实例配置 ---
 
 const api: AxiosInstance = axios.create({
@@ -479,6 +402,58 @@ export const verify_resource_password = async (data: VerifyResourceParams): Prom
     const response = await api.post<ApiResponse<{ access_token: string; file_path: string }>>('/resources/verify', data)
     return response.data
 }
+
+// --- 文章发布与管理 ---
+
+export interface PublishPostRequest {
+    title: string
+    content: string
+    content_format?: string
+    summary?: string
+    cover_img?: string
+    tags?: string
+    category_id?: number
+    visibility?: 'public' | 'private'
+    is_top?: number
+}
+
+export const publish_post = async (data: PublishPostRequest): Promise<ApiResponse<any>> => {
+    console.log('📝 API 调用 - publish_post:', { title: data.title })
+    const response = await api.post<ApiResponse<any>>('/posts/publish', data)
+    return response.data
+}
+
+export const edit_post = async (id: number, data: PublishPostRequest): Promise<ApiResponse<any>> => {
+    console.log('📝 API 调用 - edit_post:', { id, title: data.title })
+    const response = await api.put<ApiResponse<any>>(`/posts/${id}`, data)
+    return response.data
+}
+
+export const delete_post = async (id: number): Promise<ApiResponse<any>> => {
+    console.log('🗑️ API 调用 - delete_post:', { id })
+    const response = await api.delete<ApiResponse<any>>(`/posts/${id}`)
+    return response.data
+}
+
+// --- 个人资料 ---
+
+export const update_profile = async (data: Partial<ProfileInfo>): Promise<ApiResponse<null>> => {
+    console.log('👤 API 调用 - update_profile:', data)
+    const response = await api.put<ApiResponse<null>>('/profile', data)
+    return response.data
+}
+
+export const upload_image = async (file: File): Promise<ApiResponse<{ url: string; filename: string }>> => {
+    console.log('📸 API 调用 - upload_image:', file.name)
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post<ApiResponse<{ url: string; filename: string }>>('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
+}
+
+// --- 其他 ---
 
 export const get_profile = async (): Promise<ApiResponse<ProfileInfo>> => {
     console.log('👤 API 调用 - get_profile')
